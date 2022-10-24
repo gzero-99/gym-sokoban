@@ -5,17 +5,17 @@ from gym.spaces import Box
 from .room_utils import generate_room
 from .render_utils import room_to_rgb, room_to_tiny_world_rgb
 import numpy as np
+import random
 
 
 class SokobanEnv(gym.Env):
     metadata = {
-        'render.modes': ['human', 'rgb_array', 'tiny_human', 'tiny_rgb_array', 'raw'],
-        'render_modes': ['human', 'rgb_array', 'tiny_human', 'tiny_rgb_array', 'raw']
+        'render.modes': ['human', 'rgb_array', 'tiny_human', 'tiny_rgb_array']
     }
 
     def __init__(self,
                  dim_room=(10, 10),
-                 max_steps=120,
+                 max_steps=1000,
                  num_boxes=4,
                  num_gen_steps=None,
                  reset=True):
@@ -43,7 +43,7 @@ class SokobanEnv(gym.Env):
         self.action_space = Discrete(len(ACTION_LOOKUP))
         screen_height, screen_width = (dim_room[0] * 16, dim_room[1] * 16)
         self.observation_space = Box(low=0, high=255, shape=(screen_height, screen_width, 3), dtype=np.uint8)
-        
+
         if reset:
             # Initialize Room
             _ = self.reset()
@@ -52,9 +52,33 @@ class SokobanEnv(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
+    def encode(self, num_gen_steps, num_env_steps, new_position, current_position):
+        # (5) 5, 5, 4
+        i = self.num_gen_steps
+        i *= 5
+        i += self.num_env_steps
+        i *= 5
+        i += new_position[0]
+        i *= 4
+        i += new_position[1]
+        i += current_position[1]
+        return i
+
+    def decode(self, i):
+        out = []
+        out.append(i % 4)
+        i = i // 4
+        out.append(i % 5)
+        i = i // 5
+        out.append(i % 5)
+        i = i // 5
+        out.append(i)
+        assert 0 <= i < 5
+        return reversed(out)
+
     def step(self, action, observation_mode='rgb_array'):
-        assert action in ACTION_LOOKUP
-        assert observation_mode in ['rgb_array', 'tiny_rgb_array', 'raw']
+        # assert action in ACTION_LOOKUP
+        # assert observation_mode in ['rgb_array', 'tiny_rgb_array']
 
         self.num_env_steps += 1
 
@@ -74,12 +98,15 @@ class SokobanEnv(gym.Env):
             moved_player = self._move(action)
 
         self._calc_reward()
-        
+
         done = self._check_if_done()
 
         # Convert the observation to RGB frame
-        observation = self.render(mode=observation_mode)
-
+        # observation = self.render(mode=observation_mode)
+        current_position = self.player_position.copy()
+        change = CHANGE_COORDINATES[(action - 1) % 4]
+        new_position = self.player_position + change
+        state = self.encode(self.num_gen_steps, self.num_env_steps, new_position, current_position)
         info = {
             "action.name": ACTION_LOOKUP[action],
             "action.moved_player": moved_player,
@@ -89,7 +116,7 @@ class SokobanEnv(gym.Env):
             info["maxsteps_used"] = self._check_if_maxsteps()
             info["all_boxes_on_target"] = self._check_if_all_boxes_on_target()
 
-        return observation, self.reward_last, done, info
+        return state, self.reward_last, done, info
 
     def _push(self, action):
         """
@@ -107,7 +134,6 @@ class SokobanEnv(gym.Env):
         if new_box_position[0] >= self.room_state.shape[0] \
                 or new_box_position[1] >= self.room_state.shape[1]:
             return False, False
-
 
         can_push_box = self.room_state[new_position[0], new_position[1]] in [3, 4]
         can_push_box &= self.room_state[new_box_position[0], new_box_position[1]] in [1, 2]
@@ -162,7 +188,7 @@ class SokobanEnv(gym.Env):
         """
         # Every step a small penalty is given, This ensures
         # that short solutions have a higher reward.
-        self.reward_last = self.penalty_for_step
+        self.reward_last += self.penalty_for_step
 
         # count boxes off or on the target
         empty_targets = self.room_state == 2
@@ -178,16 +204,22 @@ class SokobanEnv(gym.Env):
             self.reward_last += self.reward_box_on_target
         elif current_boxes_on_target < self.boxes_on_target:
             self.reward_last += self.penalty_box_off_target
-        
-        game_won = self._check_if_all_boxes_on_target()        
+
+        game_won = self._check_if_all_boxes_on_target()
         if game_won:
             self.reward_last += self.reward_finished
-        
+            self._print_reward()  # added to print rewards
+
         self.boxes_on_target = current_boxes_on_target
+
+    # added to print rewards
+    def _print_reward(self):
+        reward = self.reward_last
+        print("----final rewards :", reward)
 
     def _check_if_done(self):
         # Check if the game is over either through reaching the maximum number
-        # of available steps or by pushing all boxes on the targets.        
+        # of available steps or by pushing all boxes on the targets.
         return self._check_if_all_boxes_on_target() or self._check_if_maxsteps()
 
     def _check_if_all_boxes_on_target(self):
@@ -210,7 +242,7 @@ class SokobanEnv(gym.Env):
         except (RuntimeError, RuntimeWarning) as e:
             print("[SOKOBAN] Runtime Error/Warning: {}".format(e))
             print("[SOKOBAN] Retry . . .")
-            return self.reset(second_player=second_player, render_mode=render_mode)
+            return self.reset(second_player=second_player)
 
         self.player_position = np.argwhere(self.room_state == 5)[0]
         self.num_env_steps = 0
@@ -218,6 +250,12 @@ class SokobanEnv(gym.Env):
         self.boxes_on_target = 0
 
         starting_observation = self.render(render_mode)
+        # --------------------------------------------------------------------------#current_position
+        current_position = self.player_position.copy()
+        change = CHANGE_COORDINATES[(random.randint(0, 8) - 1) % 4]
+        new_position = self.player_position + change
+        state = self.encode(self.num_gen_steps, self.num_env_steps, new_position, current_position)
+        # --------------------------------------------------------------------------#
         return starting_observation
 
     def render(self, mode='human', close=None, scale=1):
@@ -235,19 +273,11 @@ class SokobanEnv(gym.Env):
             self.viewer.imshow(img)
             return self.viewer.isopen
 
-        elif 'raw' in mode:
-            arr_walls = (self.room_fixed == 0).view(np.int8)
-            arr_goals = (self.room_fixed == 2).view(np.int8)
-            arr_boxes = ((self.room_state == 4) + (self.room_state == 3)).view(np.int8)
-            arr_player = (self.room_state == 5).view(np.int8)
-
-            return arr_walls, arr_goals, arr_boxes, arr_player
-
         else:
             super(SokobanEnv, self).render(mode=mode)  # just raise an exception
 
     def get_image(self, mode, scale=1):
-        
+
         if mode.startswith('tiny_'):
             img = room_to_tiny_world_rgb(self.room_state, self.room_fixed, scale=scale)
         else:
@@ -293,4 +323,4 @@ CHANGE_COORDINATES = {
     3: (0, 1)
 }
 
-RENDERING_MODES = ['rgb_array', 'human', 'tiny_rgb_array', 'tiny_human', 'raw']
+RENDERING_MODES = ['rgb_array', 'human', 'tiny_rgb_array', 'tiny_human']
