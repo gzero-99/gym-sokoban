@@ -28,9 +28,8 @@ class BoxobanEnv(SokobanEnv):
 
         if not os.path.exists(self.cache_path):
            
-            # url = "https://github.com/deepmind/boxoban-levels/archive/master.zip"
-            url = "https://github.com/gzero-99/boxoban-levels/archive/master.zip"
-
+            url = "https://github.com/deepmind/boxoban-levels/archive/master.zip"
+            
             if self.verbose:
                 print('Boxoban: Pregenerated levels not downloaded.')
                 print('Starting download from "{}"'.format(url))
