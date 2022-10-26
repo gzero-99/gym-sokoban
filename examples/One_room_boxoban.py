@@ -5,7 +5,7 @@ import numpy as np
 import random
 import copy
 
-env_name = 'Sokoban-small-v0'
+env_name = 'Boxoban-Test-v0'
 env = gym.make(env_name)
 
 ACTION_LOOKUP = env.unwrapped.get_action_lookup()
@@ -14,22 +14,17 @@ print("Created environment: {}".format(env_name))
 # print("Observation Space: ", env.observation_space)
 # print("Action Space       ", env.action_space)
 
-q_table = np.zeros([7000, env.action_space.n])
+q_table = np.zeros([10000, env.action_space.n])
 # a 2D array that represent every possible state and action in the virtual space and initialize all of them to 0
-learning_rate = 0.3
+learning_rate = 0.05
 discount_factor = 0.7
-exploration = 0.5
-epochs = 1000000
+exploration = 0.7
+epochs = 30000
 
-# env 하나 생성해서 복사해놓고 사용
-observation = env.reset()
-temp_ob = copy.deepcopy(env.reset())
-temp = copy.deepcopy(env)
 count = 0
 
 for i_episode in range(epochs):
-    env = copy.deepcopy(temp)
-    observation = copy.deepcopy(temp_ob)
+    observation = env.reset()
     done = False
 
     count += 1
@@ -58,21 +53,17 @@ for i_episode in range(epochs):
 
         observation = next_state
 
-np.savetxt("15-test.txt", q_table, fmt="%s")
+np.savetxt("25-boxo-0.05-0.7-0.7-30000.txt", q_table, fmt="%s")
 print("Training finished.")
 
 total_epochs, total_penalties = 0, 0
 episodes = 3  # 3번만 확인
 
 print("Training Evaluation Start.")
-with open("15-test.txt") as textFile:
-    q_table1 = [line.split() for line in textFile]
-    q_table = np.array(q_table1)
 
 count = 0
 for _ in range(episodes):
-    env = copy.deepcopy(temp)
-    state = copy.deepcopy(temp_ob)
+    state = env.reset()
     epochs, penalties, reward = 0, 0, 0
     done = False
 
