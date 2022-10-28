@@ -361,7 +361,8 @@ class Boxban_Env0_test(BoxobanEnv):
     }
 
     def __init__(self, **kwargs):
-        kwargs['max_steps'] = kwargs.get('max_steps', 200)
+        # kwargs['max_steps'] = kwargs.get('max_steps', 200)
+        kwargs['max_steps'] = kwargs.get('max_steps', 150)
         kwargs['difficulty'] = kwargs.get('difficulty', 'unfiltered')
         kwargs['split'] = kwargs.get('split', 'test')
         super(Boxban_Env0_test, self).__init__(**kwargs)

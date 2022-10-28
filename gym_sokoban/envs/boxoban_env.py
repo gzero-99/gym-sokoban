@@ -11,7 +11,8 @@ import numpy as np
 
 class BoxobanEnv(SokobanEnv):
     num_boxes = 4
-    dim_room=(10, 10)
+    # dim_room = (10, 10)
+    dim_room = (5, 5)
 
     def __init__(self,
              max_steps=120,
@@ -28,7 +29,7 @@ class BoxobanEnv(SokobanEnv):
 
         if not os.path.exists(self.cache_path):
            
-            url = "https://github.com/deepmind/boxoban-levels/archive/master.zip"
+            url = "https://github.com/gzero-99/boxoban-levels/archive/master.zip"
             
             if self.verbose:
                 print('Boxoban: Pregenerated levels not downloaded.')

@@ -14,9 +14,13 @@ class SokobanEnv(gym.Env):
     }
 
     def __init__(self,
-                 dim_room=(10, 10),
-                 max_steps=1000,
-                 num_boxes=4,
+                 # dim_room=(10, 10),
+                 # max_steps=1000,
+                 # num_boxes=4,
+                 dim_room=(5, 5),
+                 max_steps=150,
+                 num_boxes=1,
+
                  num_gen_steps=None,
                  reset=True):
 
@@ -35,7 +39,12 @@ class SokobanEnv(gym.Env):
         self.penalty_box_off_target = -1
         self.reward_box_on_target = 1
         self.reward_finished = 10
+        self.penalty_max_step = -10
+        #
         self.reward_last = 0
+
+        # reward average or to find highest reward
+        self.reward_highest = 0
 
         # Other Settings
         self.viewer = None
@@ -43,6 +52,8 @@ class SokobanEnv(gym.Env):
         self.action_space = Discrete(len(ACTION_LOOKUP))
         screen_height, screen_width = (dim_room[0] * 16, dim_room[1] * 16)
         self.observation_space = Box(low=0, high=255, shape=(screen_height, screen_width, 3), dtype=np.uint8)
+
+        self.succ_count = 0
 
         if reset:
             # Initialize Room
@@ -206,8 +217,16 @@ class SokobanEnv(gym.Env):
             self.reward_last += self.penalty_box_off_target
 
         game_won = self._check_if_all_boxes_on_target()
+
+        # penalty if max steps done but not on target
+        max_step_lose = self._check_if_maxsteps()
+        if not game_won:
+            if max_step_lose:
+                self.reward_last += self.penalty_max_step
+
         if game_won:
             self.reward_last += self.reward_finished
+            self.succ_count += 1
             self._print_reward()  # added to print rewards
 
         self.boxes_on_target = current_boxes_on_target
@@ -215,7 +234,10 @@ class SokobanEnv(gym.Env):
     # added to print rewards
     def _print_reward(self):
         reward = self.reward_last
-        print("----final rewards :", reward)
+        count = self.succ_count
+        if reward > self.reward_highest:
+            self.reward_highest = reward
+        print("----final rewards :", reward, ", succ count: ", count)
 
     def _check_if_done(self):
         # Check if the game is over either through reaching the maximum number
@@ -324,3 +346,4 @@ CHANGE_COORDINATES = {
 }
 
 RENDERING_MODES = ['rgb_array', 'human', 'tiny_rgb_array', 'tiny_human']
+
